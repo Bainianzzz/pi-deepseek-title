@@ -2,18 +2,18 @@
  * DeepSeek conversation titles
  * (https://api-docs.deepseek.com/zh-cn/guides/conversation_title)
  *
- * Adds `"title": {"enabled": true}` to the first provider request of a new
- * conversation, reads the title companion returned in the response stream, and
- * stores it as the pi session name. That is all it takes: pi's own footer shows
- * the session name on the path line and `/resume` shows it in the session list.
+ * Adds `"title": {"enabled": true}` to provider requests of a new conversation,
+ * reads the title companion returned in the response stream, and stores it as
+ * the pi session name. That is all it takes: pi's own footer shows the session
+ * name on the path line and `/resume` shows it in the session list.
  *
  * Only the Responses API is handled: it is the mode where DeepSeek generates a
  * title on its own.
  *
- * The title is requested once per conversation. Sessions that already contain
- * an assistant message or a name are left untouched. When the response carries
- * no title (refusal, error, tool-only answer) nothing is stored and the session
- * list keeps falling back to the first user message.
+ * A response does not always carry a title (refusal, error, tool-only answer),
+ * so every request is tagged until a title actually shows up. Sessions that
+ * already contain an assistant message or a name when they start are left
+ * untouched; until then the session list falls back to the first user message.
  */
 
 import type { Model } from "@earendil-works/pi-ai";
@@ -50,7 +50,8 @@ function hasAssistantMessage(manager: ExtensionContext["sessionManager"]): boole
 export default function (pi: ExtensionAPI) {
 	let title: string | undefined;
 	let pendingTitle: string | undefined;
-	let titleRequested = false;
+	// Session already had a name or a turn when it started: don't ask for titles.
+	let skipTitle = false;
 
 	const flushTitle = () => {
 		if (!pendingTitle) return;
@@ -61,21 +62,18 @@ export default function (pi: ExtensionAPI) {
 		pi.setSessionName(next);
 	};
 
-	pi.on("session_start", (_event, ctx) => {
+	pi.on("session_start", (event, ctx) => {
 		pendingTitle = undefined;
 		const name = ctx.sessionManager.getSessionName();
 		title = name;
-		titleRequested = Boolean(name) || hasAssistantMessage(ctx.sessionManager);
+		// A resumed/forked session keeps its history; an in-session /reload does not
+		// end the conversation, so it keeps asking for a title.
+		skipTitle = Boolean(name) || (hasAssistantMessage(ctx.sessionManager) && event.reason !== "reload");
 	});
 
 	pi.on("before_provider_request", (event, ctx) => {
-		if (titleRequested) return;
+		if (skipTitle || title) return;
 		if (!supportsTitle(ctx.model)) return;
-		if (hasAssistantMessage(ctx.sessionManager)) {
-			titleRequested = true;
-			return;
-		}
-		titleRequested = true;
 		const payload = event.payload;
 		if (!payload || typeof payload !== "object" || Array.isArray(payload)) return;
 		if ("title" in payload) return;

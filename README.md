@@ -10,11 +10,11 @@
 ## 行为
 
 - 只处理 Responses 模式（`api === "openai-responses"`，即 DeepSeek 自动生成标题的模式），且仅当模型走 DeepSeek 端点（`provider` 或 `baseUrl` 含 `deepseek`）。
-- 只在会话的第一次 provider 请求上加 `title` 字段；拿到标题后不再开启。
+- 每次 provider 请求都带上 `title`，直到真正拿到标题为止（纯工具调用等回合不会返回标题，下一次请求继续请求）。
 - 已经 resume 的会话（分支里已有 assistant 消息）或已有会话名的会话不再请求标题。
 - 标题来自 `response.completed` 事件的 `response.title`，在 assistant 消息落盘后写成会话名。
-- 标题为空（拒答、报错、纯工具调用回合）时不写会话名，`/resume` 列表回退到首条用户消息。
-- 不处理 `/name` 重命名：标题只来自 DeepSeek 的首次响应。
+- 某个回合没拿到标题时不写会话名，后续请求继续请求；一直拿不到则 `/resume` 列表回退到首条用户消息。
+- 不处理 `/name` 重命名：重命名后插件不再介入，也不感知。
 - 非 TUI 模式（`pi -p`、RPC）同样写入会话名。
 
 ## 安装
