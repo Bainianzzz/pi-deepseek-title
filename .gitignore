@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build / typecheck artifacts
+dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local env & secrets
+.env
+.env.*
+!.env.example
+
+# Pi local runtime state
+.pi/
+
+# Test fixtures written by ad-hoc runs
+tmp/
+coverage/
+*.tmp
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
